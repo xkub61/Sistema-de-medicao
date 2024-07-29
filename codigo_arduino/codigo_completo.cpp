@@ -1,3 +1,4 @@
+#include<Arduino.h>
 //Variáveis de equipamento
 #define q 0.0048875855327   // Passo de quantização = 5/(2^10-1) = 5/1023
 // Parâmetros do sinal de corrente

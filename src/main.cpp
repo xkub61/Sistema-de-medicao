@@ -1,5 +1,23 @@
 #include <Arduino.h>
 
+//Parametros do projeto
+// Parâmetros do sinal de corrente
+#define R_shunt 1.8         // Resitência do resistor shunt
+#define G_Iso 8             // Ganho do AMPISO
+
+// Parâmetros do sinal de tensão
+#define Rel_T 13.79         // Relação do transformador
+#define Div_Tensao 0.15     // Divisor de tensão
+
+// Parâmetros do sinal de temperatura
+#define P_Temp 100          // Proporção temperatura/tensão do LM35 (0,01mV/°C)
+#define G_Temp 8.81         // Ganho do ampop
+
+// Parâmetros do sinal de luminância
+#define R_Ilum 4600         // Resistência utilizada
+#define P_Ilum 0.0000008   // Proporção iluminância/corrente
+
+
 const int N = 4;          //Number of channels
 const int tam = 150;      //Size of data buffers
 
@@ -11,7 +29,7 @@ int dataVector[N][tam];   //Data vectors for each channel
 void setup()
 {
     //Set serial port configuration and establish communication
-  Serial.begin(115200);
+  Serial.begin(19200);//115200
 
     //Configure the ADC pins
   pinMode(A0, INPUT);
@@ -45,7 +63,7 @@ void setup()
   TCCR0B = 0x00;    //FOC0A, FOC0B = 0 -> force output compare A, B = 0
                     //CS0[2:0] = 000 -> no clock source (timer/counter stopped)
   TCNT0 = 0;        //Reset the counter 0     
-  OCR0A = 76;       //Set the compare register A
+  OCR0A = 18;       //Set the compare register A
   OCR0B = 0;        //Reset the compare register B      
   TIMSK0 = 0x02;    //OCIE0A = 1 -> timer/counter 0 output compare A match interrupt enable.        
 
@@ -90,32 +108,9 @@ ISR(ADC_vect)
   }
 }
 
-
-//-----------------------------
-//TIMER interrupt service routine
 ISR(TIMER0_COMPA_vect) {
-    /* just clears the flag, as needed, but can be used for secondary ADC actions */
-    /* In this example just toggles the digital output 7 at timer_clk/2 Hz */
-  static bool toogle = true;
-  static int counter = 0;
-
-  if (counter == 60){
-    counter = 0;    
-    if (toogle) {
-      //digitalWrite(LED_BUILTIN, HIGH);
-      digitalWrite(7, HIGH);
-      toogle = false;
-    } else {
-      //digitalWrite(LED_BUILTIN, LOW);
-      digitalWrite(7, LOW);
-      toogle = true;
-    }
-  }
-  else
-    counter++;
+  // just clears the interrupt flag
 }
-
-
 //--------------------------------------
 //Loop to send data to the main computer
 void loop()
@@ -126,11 +121,11 @@ void loop()
     //Verify if it is time to transmit data
   if (sendStatus == true){
       //Wait for the command from the host
-    cmd = 'x';
-    while (cmd != 'A'){
-      if (Serial.available() > 0)
-        cmd = Serial.read();
-    }
+    // cmd = 'x';
+    // while (cmd != 'A'){
+    //   if (Serial.available() > 0)
+    //     cmd = Serial.read();
+    // }
       //Transmit the data
     for(i=0; i<tam; i++){   
       for(j=0; j<(N-1); j++){
