@@ -161,21 +161,7 @@ void loop()
       }
       Serial.println();
     }
-      //Wait for the command from the host
-    // cmd = 'x';
-    // while (cmd != 'A'){
-    //   if (Serial.available() > 0)
-    //     cmd = Serial.read();
-    // }
-      //Transmit the data
-    for(i=0; i<tam; i++){   
-      for(j=0; j<(N-1); j++){
-        Serial.print(dataVector[j][i]);
-        Serial.print("\t");
-      }
-      Serial.println(dataVector[N-1][i]);
-    }
-      //Restart acquisition
+    //Restart acquisition
     noInterrupts();
     sendStatus = false;
     interrupts();
