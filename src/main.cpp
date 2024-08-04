@@ -1,21 +1,23 @@
 #include <Arduino.h>
 
 //Parametros do projeto
+#define q 0.0048875855327
+#define F_sampling 840.0 //Frequencia de amostragem de cada canal
 // Parâmetros do sinal de corrente
 #define R_shunt 1.8         // Resitência do resistor shunt
 #define G_Iso 8             // Ganho do AMPISO
-#define G_FiltroC 1.5       // Ganho do amp. de diferenças
+#define G_FiltroC 2.2       // Ganho do amp. de diferenças
 
 // Parâmetros do sinal de tensão
-#define Rel_T 13.79         // Relação do transformador
-#define Div_Tensao 0.15     // Divisor de tensão
+#define Rel_T 18.14        // Relação do transformador  anterior(13.79)
+#define Div_Tensao 0.212    // Divisor de tensão
 
 // Parâmetros do sinal de temperatura
 #define P_Temp 100          // Proporção temperatura/tensão do LM35 (0,01mV/°C)
 #define G_Temp 8.81         // Ganho do ampop
 
 // Parâmetros do sinal de luminância
-#define R_Ilum 4600         // Resistência utilizada
+#define R_Ilum 2200        // Resistência utilizada
 #define P_Ilum 0.0000008   // Proporção iluminância/corrente
 
 
@@ -113,54 +115,55 @@ ISR(TIMER0_COMPA_vect) {
   // just clears the interrupt flag
 }
 //--------------------------------------
+double energia = 0;
+double corrente_rms = 0;
+double tensao_rms = 0;
 //Loop to send data to the main computer
 void loop()
 {
-  int i,j;
-  char cmd;
-
-  int bufferCmax = -2^31;
-  int bufferCmin = 2^31;
-  int bufferTmax = -2^31;
-  int bufferTmin = 2^31;
+  int i = 0;
+  double cRms = 0;
+  double vRms = 0;
   
     //Verify if it is time to transmit data
   if (sendStatus == true){
     for(i = 0; i < tam; i++){
+
       // Exibe um ponto da corrente instantânea e calcula seus valores máximos e mínimos
-      Serial.print("Corrente_mA:"); Serial.print((((dataVector[0][i] * q) - 2.4) * 1000) / (R_shunt * G_Iso * G_FiltroC)); Serial.print(",");
-      if (((dataVector[0][i] * q) - 2.25) * 1000 / (R_shunt * G_Iso * G_FiltroC) > bufferCmax) {
-        bufferCmax = ((dataVector[0][i] * q) - 2.25) * 1000 / (R_shunt * G_Iso * G_FiltroC);
-      } else if (((dataVector[0][i] * q) - 2.25) * 1000 / (R_shunt * G_Iso * G_FiltroC) < bufferCmin) {
-        bufferCmin = ((dataVector[0][i] * q) - 2.25) * 1000 / (R_shunt * G_Iso * G_FiltroC);
-      }
+      double corrente = ((dataVector[0][i] * q) - 2.5) / (R_shunt * G_Iso * G_FiltroC);
+      cRms += corrente*corrente;
+      Serial.print("Corrente_mA:"); Serial.print(corrente*1000); Serial.print(",");
+      Serial.print("CorrenteRMS_mA:"); Serial.print(corrente_rms*1000); Serial.print(",");
       
       // Exibe um ponto da tensão instantânea e calcula seus valores máximos e mínimos
-      Serial.print("Tensao_V:"); Serial.print(((dataVector[1][i] * q) - 2) * (Rel_T / Div_Tensao)); Serial.print(","); 
-      if (((dataVector[1][i] * q) - 2) * (Rel_T / Div_Tensao) > bufferTmax) {
-        bufferTmax = ((dataVector[1][i] * q) - 2) * (Rel_T / Div_Tensao);
-      } else if (((dataVector[1][i] * q) - 2) * (Rel_T / Div_Tensao) < bufferTmin) {
-        bufferTmin = ((dataVector[1][i] * q) - 2) * (Rel_T / Div_Tensao);
-      }
-      
+      double tensao = ((dataVector[1][i] * q) - 2.5) * Rel_T / Div_Tensao;
+      vRms += tensao*tensao;
+      Serial.print("Tensao_V:"); Serial.print(tensao); Serial.print(","); 
+      Serial.print("TensãoRMS_V:"); Serial.print(tensao_rms); Serial.print(",");
+     
       // Exibe um ponto da potência instantânea
-      Serial.print("Potência_W:"); Serial.print((((dataVector[0][i] * q) - 2.4) / (R_shunt * G_Iso * G_FiltroC)) * (((dataVector[1][i] * q) - 2.25) * (Rel_T / Div_Tensao))); Serial.print(",");
+      double potencia = corrente * tensao;
+      Serial.print("Potência_W:"); Serial.print(potencia); Serial.print(",");
       
+      // Exibe um ponto de energia consumida
+      energia += potencia/(F_sampling*3600.0);
+      Serial.print("Energia_Wh:"); Serial.print(energia); Serial.print(",");
+
       // itera pelos valores amostrados de temp. e ilum.
-      if(i % 4 == 0){
-        // Exibe um ponto da temperatura
-        Serial.print("Temperatura_C:"); Serial.print((dataVector[2][i] * q * P_Temp) / G_Temp); Serial.print(",");
-        
-        // Exibe um ponto da iluminância
-        Serial.print("Iluminancia_Lumens:"); Serial.print((dataVector[3][i] * q) / (R_Ilum * P_Ilum)); Serial.print(",");           
-      }
-      if (i == tam - 1) { 
-        Serial.print("CorrenteRMS_mA:"); Serial.print(abs(bufferCmax - bufferCmin) / (2 * sqrt(14))); Serial.print(",");
-        Serial.print("TensãoRMS_V:"); Serial.print(abs(bufferTmax - bufferTmin) / (2 * sqrt(2))); Serial.print(",");
-        Serial.print("PotênciaRMS_mW:"); Serial.print((abs(bufferCmax - bufferCmin) / (2 * sqrt(14))) * (abs(bufferTmax - bufferTmin) / (2 * sqrt(2)))); Serial.print(",");
-      }
+      // Exibe um ponto da temperatura
+      uint16_t temperatura = (dataVector[2][i] * q * P_Temp);
+      Serial.print("Temperatura_C:"); Serial.print(temperatura); Serial.print(",");
+      
+      // Exibe um ponto da iluminância
+      double iluminancia = (dataVector[3][i] * q) / (R_Ilum * P_Ilum);
+      Serial.print("Iluminancia_Lumens:"); Serial.print(iluminancia); Serial.print(",");           
+
+      
       Serial.println();
     }
+    tensao_rms = sqrt(vRms/tam);
+    corrente_rms = sqrt(cRms/tam);
+    
     //Restart acquisition
     noInterrupts();
     sendStatus = false;
