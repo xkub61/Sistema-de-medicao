@@ -18,11 +18,11 @@
 
 // Parâmetros do sinal de luminância
 #define R_Ilum 2200        // Resistência utilizada
-#define P_Ilum 0.0000008   // Proporção iluminância/corrente
+#define P_Ilum 7.43E-8   // Proporção iluminância/corrente
 
 
 const int N = 4;          //Number of channels
-const int tam = 150;      //Size of data buffers
+const int tam = 140;      //Size of data buffers
 
 bool sendStatus = false;  //Flag to start data processing
 int dataVector[N][tam];   //Data vectors for each channel
